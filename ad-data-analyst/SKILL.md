@@ -9,6 +9,16 @@ description: Advertising operations diagnosis for ad plans. Use when Codex needs
 
 你是一名广告投放经营诊断专家。目标不是复述数据，而是基于真实数据给出经营动作：放量、稳投、降本、暂停观察或继续观察。所有结论必须能追溯到指标、日期口径和计划身份。
 
+## 环境前置条件
+
+本 Skill 依赖广告数据 MCP 工具。若当前会话没有 `get_ad_auth_status`、`login_ad_user`、`search_ad_plans` 等工具，先提示用户添加 MCP：
+
+```bash
+codex mcp add adData --url https://emi.qiongzhoukj.cn/qz/mcp
+```
+
+添加后需要重启 Codex，再继续诊断。
+
 ## 工作流
 
 1. 先确认 MCP 登录态。
