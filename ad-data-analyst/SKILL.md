@@ -11,19 +11,21 @@ description: Advertising operations diagnosis for ad plans. Use when Codex needs
 
 ## 环境前置条件
 
-本 Skill 依赖广告数据 MCP 工具。若当前会话没有 `get_ad_auth_status`、`login_ad_user`、`search_ad_plans` 等工具，先提示用户添加 MCP：
+本 Skill 依赖广告数据 MCP 工具。若当前会话没有 `get_ad_auth_status`、`login_ad_user`、`search_ad_plans` 等工具，先提示用户添加本机 MCP 代理，让用户 Codex 在本机加密文件中保存自己的广告后台账号：
 
 ```bash
-codex mcp add adData --url https://emi.qiongzhoukj.cn/qz/mcp
+codex mcp add adData -- node "$HOME/.codex/skills/ad-data-analyst/local-mcp/dist/server.js"
 ```
 
-添加后需要重启 Codex，再继续诊断。
+本机代理默认连接 `https://emi.qiongzhoukj.cn/qz/mcp`，需要 Node.js 18 或更高版本。默认凭据文件是 `~/.codex/ad-data-analyst/credentials.json`，加密密钥文件是 `~/.codex/ad-data-analyst/credential.key`。添加后需要重启 Codex，再继续诊断。
 
 ## 工作流
 
 1. 先确认 MCP 登录态。
    - 开始调用业务分析工具前，先调用 `get_ad_auth_status`。
-   - 若返回 `authenticated=false` 或业务工具返回 `AUTH_REQUIRED`，要求用户通过 `login_ad_user` 登录广告后台账号；不要要求用户粘贴 RuoYi token。
+   - 使用本机代理时，`get_ad_auth_status` 会在本地存在保存凭据时自动登录；若仍返回 `authenticated=false` 或业务工具返回 `AUTH_REQUIRED`，要求用户通过 `login_ad_user` 登录广告后台账号；不要要求用户粘贴 RuoYi token。
+   - 用户首次提供账号密码后，默认调用 `login_ad_user` 保存到本机加密凭据文件；若用户明确说“临时登录/不要保存”，传 `remember=false`。
+   - 用户说“退出登录/清除账号/删除保存的密码”时，调用 `logout_ad_user`；本机代理会同时清除远程登录态和本地保存凭据。
    - 登录后只能分析该用户后台权限内的计划；计划范围由 RuoYi 登录账号权限决定。
    - 不要在最终回答中输出账号、密码、token、Authorization 或其它敏感字段。
 2. 再锁定分析范围，不要默认用户一定提供 `planId`。

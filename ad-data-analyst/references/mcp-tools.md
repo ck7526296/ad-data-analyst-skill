@@ -3,7 +3,7 @@
 ## 通用规则
 
 - 所有工具只读。
-- 业务分析工具要求当前 MCP 会话先登录广告后台账号。先调用 `get_ad_auth_status`；未登录时调用 `login_ad_user`，不要要求用户粘贴 RuoYi token。
+- 业务分析工具要求当前 MCP 会话先登录广告后台账号。先调用 `get_ad_auth_status`；使用本机代理时会自动尝试读取本地加密凭据登录；仍未登录时调用 `login_ad_user`，不要要求用户粘贴 RuoYi token。
 - 用户可分析范围由 RuoYi 后台登录账号权限决定；MCP 不维护本地计划或项目范围清单。
 - `AUTH_REQUIRED` 表示未登录、登录态失效或自动重登失败；需要重新登录后再分析。`PERMISSION_DENIED` 表示当前账号缺少只读权限，不能绕过。
 - 服务支持 `mcp-session-id` 会话复用、会话 TTL 清理和浏览器 CORS 预检；客户端应复用会话，不要为每个工具调用重复初始化。
@@ -13,7 +13,7 @@
 - 后端无数据时不要编造，返回空数组或空对象后由 Skill 输出“暂无足够数据”。
 - 工具失败时，回答必须标记失败工具和缺失维度；不能用该维度支撑结论。
 - 任何 token、密钥、用户账号敏感字段都不能写入最终分析。
-- `login_ad_user` 的密码只用于本次 MCP 会话内存登录和 token 失效后自动重登，不落盘、不作为分析证据、不在回答中复述。
+- 远程 MCP 只在当前会话内存中保存 RuoYi token 和用于重登的密码，不落盘。本机代理会在用户未传 `remember=false` 时，把账号密码加密保存到用户电脑的 `~/.codex/ad-data-analyst/credentials.json`，用于后续对话自动登录；该文件不能作为分析证据，回答中不能复述账号密码。
 - `nextDayRetention`、`newRetentionRate`、`returnRetentionRate`、`returnRate` 是次留/留存/回传质量指标，不是 ROI。
 - `activationCount`、`returnCount`、`activeCount`、`activeDeviceCount` 是可能结算/事件设备线索；`sent*` 是实际回传给厂商的量；`requestCounterExt` 是扣量控制上下文。它们都不是 ROI。
 - 参数边界由 MCP schema 和 RuoYiClient 双层执行：`planId`、`returnDataCode`、`days`、`pageNum`、`pageSize` 必须是正整数，`days` 最大 30，常规列表 `pageSize` 最大 20，`get_return_data_raw_context.pageSize` 最大 100；超过上限会拒绝而不是静默截断；`queryDate` 只能是有效日历日期 `YYYY-MM-DD`，如 `2026-99-99` 会被拒绝；文本筛选会 trim，最长 128 字符。`search_ad_plans.extraFilters` 可用于新增筛选字段，但 key 只能用字母开头的字母数字下划线，最长 64 字符，值只能是字符串、数字、布尔或空值，且不能使用已有顶层参数名如 `pageSize`、`queryDate`、`planId`。`INVALID_ARGUMENT` 表示参数无效，不能改写后强行分析。
@@ -42,6 +42,7 @@
 {
   "username": "后台账号",
   "password": "后台密码",
+  "remember": true,
   "code": "可选验证码",
   "uuid": "可选验证码uuid"
 }
@@ -51,11 +52,12 @@
 
 - 生产默认验证码关闭；若返回 `CAPTCHA_REQUIRED`，说明后台开启了验证码，需要补充验证码流程后再登录。
 - 工具返回不包含 RuoYi token 和密码。
+- 通过本机代理调用时，`remember` 默认为 `true`，登录成功后会加密保存到本地凭据文件；用户要求临时登录或不要保存时传 `remember=false`。
 - 登录成功后，所有计划查询都使用该用户权限。
 
 ### logout_ad_user
 
-用途：清除当前 MCP 会话的 RuoYi token 和内存密码缓存。
+用途：清除当前 MCP 会话的 RuoYi token 和内存密码缓存；通过本机代理调用时，也会删除 `~/.codex/ad-data-analyst/credentials.json`。
 
 ## search_ad_plans
 
