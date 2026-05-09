@@ -40,7 +40,7 @@ codex mcp add adData --url https://emi.qiongzhoukj.cn/qz/mcp
    - 单计划综合判断优先调用 `get_plan_diagnosis_context`，其返回应包含 `operationContext` 作为默认解释证据；所有历史问题必须把同一个 `queryDate` 传给相关趋势、回传、半小时、历史和操作工具。
    - 质量综合审查优先调用 `get_quality_diagnosis_context`，一次核对计划身份、回传趋势、回传率、设备、次留和留存率；其中某个维度 `skipped` 或 `failed` 时，只把该维度标为诊断缺口。
    - ROI 为空、项目统计为空或用户问“是不是没上传/没产出”时，优先调用 `get_upload_status`，再判断是否为数据延迟、项目统计缺失或回传缺失。
-   - ROI、消耗、点击、转化、出价、预算节奏、次留和回传率问题补调用 `get_plan_trend`。
+   - ROI、消耗、点击、转化、出价、预算节奏、次留和回传率问题补调用 `get_plan_trend`；ROI 异常必须先拆解到成本链路：曝光、点击、CTR、CPC、转化率、转化成本、设备/回传质量和留存，不要只按 ROI 字段下结论。
    - 回传、设备、次留、留存率或上传链路问题若聚合上下文缺失或失败，再补调用 `get_return_data_trend`；只有回传编码时先查关联计划，不能把未绑定当前计划的回传编码直接用于计划结论。
    - 用户问 sent 实发、可能结算设备、原始回传事件量、扣量配置或 `requestCounterExt` 时，调用 `get_return_data_raw_context`；有 `planId` 时必须让工具校验 `returnDataCode` 与计划绑定。
    - 用户明确问“回传率”或需要核对点击到厂商回传比例时，若聚合上下文缺失或需要单独核对，再补调用 `get_return_rate_trend`。
@@ -48,13 +48,13 @@ codex mcp add adData --url https://emi.qiongzhoukj.cn/qz/mcp
    - 高峰、低谷、提前跑量、时段异常问题补调用 `get_cost_half_hour_trend`。
    - 判断“为什么变化”“是否人为调整导致”“备注/操作是否影响计划”时，优先调用 `get_plan_history_context` 和 `get_plan_operation_context`，并用同一 `queryDate`。
    - 判断“上次调整是否有效”“调价/换包/启停/改时段/换素材后要不要继续”时，调用 `get_plan_action_review_context` 做动作复盘；不要只凭日志文字判断有效或无效。
-   - 素材或广告组问题调用 `get_creative_diagnosis_context`；只在整体异常无法由 ROI、回传、时段解释，或用户明确要求时使用素材证据。
+   - 素材或广告组问题调用 `get_creative_diagnosis_context`；当 `get_plan_diagnosis_context.creativeCostTrend` 出现单素材/广告组消耗集中、`operationContext.changeLogs` 出现 `monitorType=CREATIVE` 或素材绑定变化、或计划级 ROI 下滑同时伴随 CTR 下降、CPC 上升、转化成本上升时，也必须自动补调本工具下钻素材证据。
    - 同项目低效计划筛选调用 `get_project_plan_comparison`；同回传编码异常计划筛选调用 `get_return_code_plan_comparison`；同负责人风险盘点调用 `get_manager_plan_comparison`；同人群包或外部人群包比较调用 `get_crowd_pack_plan_comparison` 或 `get_external_crowd_pack_plan_comparison`。
    - 日报、巡检、负责人盘点、项目盘点、回传编码盘点或人群包盘点，按 `references/playbooks.md` 的巡检模板输出“待放量、待降本、待暂停观察、数据缺口”四类清单。
 4. 按固定优先级诊断：`ROI > 转化/转化成本 > 回传率/回传质量/设备/次留/留存率 > 消耗/时段波动 > 操作日志解释 > 素材/广告组 > 横向对比`。
 5. 做多维一致性审查。
    - ROI 缺失时检查日期、上传延迟、设备、回传和项目统计，不直接判异常。
-   - 成本异常时检查曝光、点击、CTR、CPC、转化成本、转化率、出价和时段。
+   - 成本异常时检查曝光、点击、CTR、CPC、转化成本、转化率、出价、时段和素材/广告组集中度；ROI 下滑若伴随点击成本上升，要继续判断是 CTR 下滑导致获客效率变差、出价/竞争导致 CPC 抬升，还是素材吸引力或广告组集中造成点击质量恶化。
    - 回传异常时区分真实结算、厂商回传、项目统计兜底。
    - 指标变化前后若存在操作备注、广告备注或自动变更日志，必须先核对日志对应的计划快照，再说明这些日志对判断的影响。
    - 横向对比时只比较同口径计划。
