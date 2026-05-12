@@ -9,6 +9,9 @@
 - 服务支持 `mcp-session-id` 会话复用、会话 TTL 清理和浏览器 CORS 预检；客户端应复用会话，不要为每个工具调用重复初始化。
 - 入参必须可扩展：新增筛选字段不能破坏旧字段。
 - 返回数据应保留后端原始字段，同时提供常用摘要字段，方便后续新增接口透传。
+- 重型工具可传 `responseMode` 控制返回量：`detail` 为兼容旧行为，`summary` 走轻量返回路径，默认不返回完整 rows 或完整日志。Skill 默认优先用 `summary`，只有用户明确要求深度分析时再取 `detail`。
+- 批量同构 rows 可传 `format="toon"` 获取紧凑文本；TOON 只允许配合 `responseMode="summary"` 使用，`detail+toon` 会被拒绝。TOON 只用于计划、趋势、素材等同字段列表，不用于复杂操作日志。默认 `format="json"`。
+- summary 尽量保留可用的 `planId`、`planName`、`queryDate`、`roi`、`cost`、`conversionCost`、`bucket`、`riskSignal`；`bucket` 默认按 `ROI=1`、`消耗=50` 分层。
 - MCP 对外返回前会剔除账号 ID、系统用户 ID、内部主键、余额、token、authorization、密码等敏感字段；通用 `remark`、`planRemark`、`operationNotes`、`planRemarkLogContent` 可作为计划定位或操作解释证据。
 - 后端无数据时不要编造，返回空数组或空对象后由 Skill 输出“暂无足够数据”。
 - 工具失败时，回答必须标记失败工具和缺失维度；不能用该维度支撑结论。
@@ -80,7 +83,8 @@
     "platform": "xiaomi"
   },
   "pageNum": 1,
-  "pageSize": 10
+  "pageSize": 10,
+  "responseMode": "summary"
 }
 ```
 
@@ -130,6 +134,7 @@
 - `total=1` 且 `returnedCount=1`：继续分析。
 - `total>1` 或 `returnedCount>1`：除非用户要求批量对比，否则列候选并要求确认。
 - `source=PLAN_CANDIDATE_FALLBACK`：只能定位和消歧；必须补趋势、诊断或上传工具后才能评价效果。
+- `responseMode="summary"` 只返回定位字段、ROI、消耗、转化成本、`bucket`、`riskSignal` 和 bucket 计数；不返回完整后端 rows。
 
 ## get_plan_diagnosis_context
 
@@ -141,7 +146,8 @@
 {
   "planId": 400388971,
   "queryDate": "2026-05-08",
-  "days": 7
+  "days": 7,
+  "responseMode": "summary"
 }
 ```
 
@@ -163,6 +169,7 @@
 - 使用日志解释变化时，先引用 `currentPlan` 确认日志对应的计划、项目编码、回传编码、人群包、预算和时段。
 - 若需要超过 7 天日志或综合上下文缺少 `operationContext`，补调用 `get_plan_operation_context`。
 - 操作日志只能解释变化，不得替代 ROI、转化成本和回传数据下结论。
+- `responseMode="summary"` 是有界文本摘要，用于控制综合诊断文本长度；它不是默认轻量首轮路径。首轮默认用 `search_ad_plans(summary)` 和 `get_plan_trend(summary)`，需要完整综合证据时再用 `detail`。
 
 ## get_plan_trend
 
@@ -174,7 +181,9 @@
 {
   "planId": 400388971,
   "days": 7,
-  "queryDate": "2026-05-08"
+  "queryDate": "2026-05-08",
+  "responseMode": "summary",
+  "format": "json"
 }
 ```
 
@@ -185,6 +194,7 @@
 - ROI 只读 `yesterdayQualityScore`、`cycleQualityScore`。
 - 当天 ROI 为空要结合日期解释为正常延迟可能。
 - `nextDayRetention` 是次留/次流质量指标，`returnRate` 是回传率，不能写成 ROI。
+- summary 会返回四象限 `bucket` 和 `riskSignal`；ROI<1 的 bucket 只表示轻量风险，不自动要求深挖。
 
 ## get_plan_action_review_context
 
@@ -199,7 +209,8 @@
   "days": 7,
   "actionDate": "2026-05-07",
   "actionType": "换包",
-  "fieldName": "externalCrowdPack"
+  "fieldName": "externalCrowdPack",
+  "responseMode": "summary"
 }
 ```
 
@@ -222,6 +233,7 @@
 - `beforeAfterMetrics` 只是窗口前后对比，不能替代 ROI、转化成本、回传和设备质量的完整判断。
 - 只有消耗或点击可比时，只能说明量级变化，不能说明效果改善；需等 ROI、成本、CTR、CPC、回传或留存等质量指标补齐。
 - 任一维度 `failed` 或 `skipped` 时，说明缺口，不把该维度当作 0。
+- `responseMode="summary"` 只返回日志计数、最新证据、前后窗口摘要、维度状态和数据缺口；不返回完整 `operationLogs`、`changeLogs`、`remarkLogs` 或嵌套 detail。
 
 ## get_quality_diagnosis_context
 
@@ -233,7 +245,8 @@
 {
   "planId": 400388971,
   "days": 7,
-  "queryDate": "2026-05-08"
+  "queryDate": "2026-05-08",
+  "responseMode": "summary"
 }
 ```
 
@@ -257,6 +270,7 @@
 - 质量综合审查优先用这个工具，再根据失败维度补调用单项工具。
 - `returnRate`、`nextDayRetention`、`newRetentionRate`、`returnRetentionRate` 都不是 ROI。
 - 当天 ROI 为空时，结合此工具看近几天设备、回传率和留存是否同步异常。
+- `responseMode="summary"` 只返回计划身份、维度状态、行数、最新质量证据和数据缺口，不返回完整趋势 rows。ROI<1 默认不自动调用本工具，除非用户明确要求质量/回传/设备/留存分析。
 
 ## get_return_data_raw_context
 
@@ -270,10 +284,16 @@
   "returnDataCode": 2611,
   "queryDate": "2026-05-08",
   "pageNum": 1,
-  "pageSize": 40,
-  "maxSummaryRows": 1000
+  "pageSize": 5,
+  "responseMode": "summary"
 }
 ```
+
+轻量规则：
+
+- 默认只在用户问 sent、可能结算设备、原始回传事件、扣量配置或 `requestCounterExt` 时调用。
+- 上下文敏感场景传 `responseMode="summary"`、`pageSize=5`；不需要逐行事件时不要读取 `rows`。
+- `format="toon"` 只适合 rows 明细确实需要展示时使用。
 
 日期口径：
 
@@ -284,8 +304,8 @@
 关键字段：
 
 - `summary.summaryScope=TOTAL`：按完整筛选条件跨页汇总，不限于当前返回页。
-- `summary.isTruncated`：若为 `true`，说明最多只汇总前 1000 行，`summary.totals` 只能当截断样本，不能当完整总量。
-- `summary.summarizedRows`、`summary.totalRows`、`summary.maxSummaryRows`：分别表示已汇总行数、后端总行数和本次 MCP 汇总行数上限；`maxSummaryRows` 默认 1000，可传更小值控制样本，不能超过 1000。
+- `summary.isTruncated`：若为 `true`，说明只汇总了前 N 行，`summary.totals` 只能当截断样本，不能当完整总量。
+- `summary.summarizedRows`、`summary.totalRows`、`summary.maxSummaryRows`：分别表示已汇总行数、后端总行数和本次 MCP 汇总行数上限；`responseMode="summary"` 默认 `maxSummaryRows=100`，用户显式要求扩大样本时才传更大值，最大 1000。
 - `pageSummary.summaryScope=PAGE`：只汇总当前 `rows`，用于解释分页明细，不用于整体判断。
 - `summary.totals.possibleSettlementEventTotal`：完整筛选条件下原始可能结算事件量汇总。
 - `summary.totals.retentionEventTotal`：完整筛选条件下 `nextDayRetention + reNextDayRetention` 次留/回流次留事件量汇总。
@@ -312,7 +332,7 @@
 
 规则：
 
-- MCP 调用 `/xiaomi/return_data/list`，需要 `xiaomi:return_data:list` 权限，默认 `pageSize=40`，最大 100；`maxSummaryRows` 默认 1000，最大 1000。
+- MCP 调用 `/xiaomi/return_data/list`，需要 `xiaomi:return_data:list` 权限，默认 `pageSize=40`，最大 100；`summary` 默认最多汇总 100 行，`detail` 兼容旧行为最多汇总 1000 行，显式 `maxSummaryRows=1000` 才扩大。
 - 有 `planId` 时，MCP 先校验 `returnDataCode` 与计划绑定。
 - 优先引用 `summary` 做总体判断；但 `summary.isTruncated=true` 时只能写“前 N 行样本显示”，不能当完整总体结论。只在需要举例时引用 `pageSummary` 和 `rows` 解释具体日期、平台和配置。
 - 若工具未返回 `requestCounterExt` 或原始可能结算字段，回答必须写“暂无扣量配置证据”或“暂无原始回传事件证据”，不能编造扣量比例。
@@ -419,7 +439,8 @@
 {
   "planId": 400388971,
   "days": 7,
-  "queryDate": "2026-05-08"
+  "queryDate": "2026-05-08",
+  "responseMode": "summary"
 }
 ```
 
@@ -458,6 +479,7 @@
 - 分析“为什么变化”“是否人为调整导致”“备注是否影响计划”时必须调用。
 - 日志判断必须绑定 `currentPlan`，不能只根据日志文字脱离计划口径下结论。
 - 历史日期分析必须传 `queryDate`；如果 `planSnapshotSource=PLAN_BASE_ONLY`，说明该日期没有指标证据，不能按 0 消耗、0 点击判断。
+- `responseMode="summary"` 只返回计划快照摘要、日志计数和最新操作/变更/备注证据；不返回完整日志数组。
 - 日志只作为解释线索，不能替代 ROI、转化成本、设备和回传数据。
 - 如果日志显示调出价、换人群包、暂停/恢复、备注异常事项，应在风险判断中说明。
 - 如果日志缺失，不能据此说明没有操作，只能写“暂无足够操作日志证据”。
@@ -515,7 +537,8 @@
   "queryDate": "2026-05-08",
   "days": 7,
   "platform": 1,
-  "topN": 20
+  "topN": 5,
+  "responseMode": "summary"
 }
 ```
 
@@ -531,6 +554,7 @@
 规则：
 
 - 素材问题或整体异常无法由 ROI、回传、时段解释时调用。
+- ROI<1 默认不自动调用本工具；只有用户要求深度分析或明确问素材/广告组时调用。
 - 不能只按素材消耗排名定优劣；要结合 CTR、CPC、ECPM、计划 ROI/转化和回传证据。
 - 派生字段是诊断建议，不是自动执行；必须结合计划 ROI、转化成本和回传质量后再给动作。
 - `concentrationRisk=high` 时不要直接暂停唯一高消耗素材，先判断它是否也是主要有效素材。
@@ -546,7 +570,8 @@
   "productCode": "项目统计编码",
   "queryDate": "2026-05-08",
   "days": 7,
-  "pageSize": 20
+  "pageSize": 20,
+  "responseMode": "summary"
 }
 ```
 
@@ -554,6 +579,7 @@
 
 - 只比较同项目编码和同日期口径计划。
 - 排序/判断优先看 ROI、转化成本、消耗规模、设备质量、留存和回传率。
+- ROI<1 默认只作为轻量风险清单，不自动逐计划深挖。
 
 ## get_return_code_plan_comparison
 
@@ -566,7 +592,8 @@
   "returnDataCode": 1592,
   "queryDate": "2026-05-08",
   "days": 7,
-  "pageSize": 20
+  "pageSize": 20,
+  "responseMode": "summary"
 }
 ```
 
@@ -586,7 +613,8 @@
   "manager": "负责人",
   "queryDate": "2026-05-08",
   "days": 7,
-  "pageSize": 20
+  "pageSize": 20,
+  "responseMode": "summary"
 }
 ```
 
@@ -607,7 +635,8 @@
   "crowdPack": "人群包",
   "queryDate": "2026-05-08",
   "days": 7,
-  "pageSize": 20
+  "pageSize": 20,
+  "responseMode": "summary"
 }
 ```
 
@@ -629,7 +658,8 @@
   "externalCrowdPack": "外部人群包",
   "queryDate": "2026-05-08",
   "days": 7,
-  "pageSize": 20
+  "pageSize": 20,
+  "responseMode": "summary"
 }
 ```
 
