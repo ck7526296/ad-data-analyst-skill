@@ -1,6 +1,6 @@
 ---
 name: ad-data-analyst
-description: Advertising operations diagnosis for ad plans. Use when Codex needs to locate ad plans from plan name, plan ID, project/product code, return data code, manager, date, crowd package, remarks, or fuzzy clues; analyze ROI, conversion cost, spend, return data, return rate, possible settlement devices, sent vendor devices, deduction/throttling strategy, next-day retention, retention rates, time slots, materials, operation logs, or upload gaps; compare plans under the same scope; explain why metrics changed; and recommend scale, stabilize, reduce cost, pause, or continue observing.
+description: Advertising operations diagnosis and rule maintenance for ad plans. Use when Codex needs to locate ad plans from plan name, plan ID, project/product code, return data code, manager, date, crowd package, remarks, or fuzzy clues; analyze ROI, conversion cost, spend, return data, return rate, possible settlement devices, sent vendor devices, deduction/throttling strategy, next-day retention, retention rates, time slots, materials, operation logs, or upload gaps; compare plans under the same scope; explain why metrics changed; recommend scale, stabilize, reduce cost, pause, or continue observing; or maintain project rules, analysis rules, output preferences, patch proposals, repository sync, and GitHub PR workflows for this skill.
 ---
 
 # 广告数据分析师
@@ -71,6 +71,27 @@ codex mcp add adData -- node "$HOME/.codex/skills/ad-data-analyst/local-mcp/dist
    - 工具失败或权限不足：只说明诊断缺口，不给强动作。
 7. 输出结论、证据、风险和动作。缺关键数据时写“暂无足够数据”，不要编造原因。
 
+## 用户维护规则
+
+用户可以维护三类规则，规则只影响诊断口径、分析优先级和输出格式，不替代 MCP 真实数据、后台权限或计划范围。
+
+- 项目规则：项目/结算/回传/扣量/sent/ROI 口径，读取 `references/project-rules.md`。
+- 分析规则：诊断优先级、深挖触发条件、重点指标和证据强度，读取 `references/analysis-rules.md`。
+- 输出规则：详略、模板、默认字数、结论先行和展开条件，读取 `references/output-rules.md`。
+
+优先级：本地规则 `~/.codex/ad-data-analyst/rules/` > Skill 仓库规则 `references/` > 通用规则。使用本地覆盖规则时，最终回答必须说明规则来源和适用范围。规则与 MCP 数据冲突时，以 MCP 数据为事实，以规则解释口径。
+
+## 用户反馈转规则
+
+当用户对分析结果或 Skill 行为提出改动建议时，先判断规则类型并生成规则变更单，不要直接把一次性偏好当成永久规则。
+
+- 用户说“太啰嗦/太长/少说点/只要结论”：归入输出规则，调整默认长度、段落数量和展开条件。
+- 用户说“应该重点看某指标/先看回传/别老看素材”：归入分析规则，调整诊断优先级或深挖触发条件。
+- 用户说“这个项目不是这样结算/这个项目 ROI 口径不同”：归入项目规则，补充 `productCode`、生效日期和口径说明。
+- 用户说“以后都按这个格式/这个项目按这个格式”：归入输出规则，并标注适用范围是全局、项目级还是某类问题。
+
+规则变更单必须包含：修改类型、触发问题、当前问题、新规则、适用范围、验证用例。若用户要求同步到仓库或 GitHub，读取 `references/contribution-workflow.md`，默认先生成补丁和审查报告；只有用户明确授权且存在可提交的源码仓库时，才创建分支、提交、推送和 PR。
+
 ## 关键红线
 
 - ROI 只读取 `yesterdayQualityScore` 和 `cycleQualityScore`。
@@ -133,5 +154,9 @@ codex mcp add adData -- node "$HOME/.codex/skills/ad-data-analyst/local-mcp/dist
 - 动作决策分层、动作策略库、动作复盘、素材、人群包和日报/巡检模板：读 `references/playbooks.md`。
 - MCP 工具入参、返回字段和失败处理：读 `references/mcp-tools.md`。
 - 输出模板和措辞约束：读 `references/report-template.md`。
+- 用户维护项目结算、回传、扣量、sent 或 ROI 口径：读 `references/project-rules.md`，并优先检查本地 `~/.codex/ad-data-analyst/rules/project-rules.md` 或同名 YAML。
+- 用户维护诊断优先级、深挖触发、重点指标或证据强度：读 `references/analysis-rules.md`，并优先检查本地覆盖规则。
+- 用户维护输出详略、默认模板、字数、结论先行或展开条件：读 `references/output-rules.md`，并优先检查本地覆盖规则。
+- 用户要求完善 Skill、生成补丁、同步仓库或创建 GitHub PR：读 `references/contribution-workflow.md`。
 - 最小路径示例，如只定位、多候选、当天 ROI 为空、回传错配、扣量/sent 问题：读 `references/examples.md`。
 - 后续新增数据接口或工具时：读 `references/extension-guide.md`。

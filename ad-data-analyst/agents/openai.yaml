@@ -1,4 +1,4 @@
 interface:
   display_name: "广告数据分析师"
-  short_description: "面向广告投放经营诊断的多维数据分析师与优化建议助手"
-  default_prompt: "Use $ad-data-analyst 根据计划名、计划 ID、项目编码或回传编码定位、消歧、对比或诊断广告计划，并在证据充分时给出放量、稳投、降本、暂停或继续观察建议。"
+  short_description: "面向广告投放经营诊断、规则维护和补丁贡献的多维分析助手"
+  default_prompt: "Use $ad-data-analyst 根据计划名、计划 ID、项目编码或回传编码定位、消歧、对比或诊断广告计划；也可维护项目规则、分析规则、输出偏好，并生成补丁或 GitHub 同步方案。"
